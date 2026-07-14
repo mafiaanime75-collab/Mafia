@@ -1,5 +1,5 @@
 """
-Bot valyutasi: "Sehirli tosh" (絆 — yapon tilida "bog'liqlik/ahdlashuv" degani,
+Bot valyutasi: "Kizuna" (絆 — yapon tilida "bog'liqlik/ahdlashuv" degani,
 anime olamida qahramonlar orasidagi do'stlik-ittifoq g'oyasiga ishora,
 shu sabab istalgan anime janriga mos keladi).
 
