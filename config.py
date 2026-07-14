@@ -21,5 +21,5 @@ DAY_DISCUSSION_SEC = 90
 VOTING_DURATION_SEC = 40
 
 # Valyuta nomi (o'zgaruvchan qilib chiqarildi - kerak bo'lsa almashtiring)
-CURRENCY_NAME = "sehirli tosh"
+CURRENCY_NAME = "Kizuna"
 CURRENCY_SYMBOL = "🔗"
