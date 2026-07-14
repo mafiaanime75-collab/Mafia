@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 
-from data.genres import search_genres
+from genres import search_genres
 from keyboards import genre_results_kb
 from states import GenreSelect
 from database import get_or_create_user
