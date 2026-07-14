@@ -9,7 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN
 from database import init_db
 
-from handlers import start, lobby, game, rating, economy
+import start, lobby, game, rating, economy
 
 
 async def main():
