@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "SIZNING_BOT_TOKENINGIZ")
-MAIN_GROUP_ID = int(os.getenv("MAIN_GROUP_ID", "-1000000000000"))
-MAIN_GROUP_INVITE_LINK = os.getenv("MAIN_GROUP_INVITE_LINK", "https://t.me/sizning_guruhingiz")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8613383536:AAFtxKbwkbo6jwpU_AI-oHdoHLstw-8DcjE")
+MAIN_GROUP_ID = int(os.getenv("MAIN_GROUP_ID", "-5305326142"))
+MAIN_GROUP_INVITE_LINK = os.getenv("MAIN_GROUP_INVITE_LINK", "https://t.me/+j5SvFE1hj75iNzUy")
 DB_PATH = os.getenv("DB_PATH", "animafia.db")
 
 _admin_ids_raw = os.getenv("ADMIN_IDS", "")
