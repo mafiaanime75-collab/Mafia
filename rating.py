@@ -3,13 +3,14 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from database import top_global, top_group, get_or_create_user
+from config import CURRENCY_NAME, CURRENCY_SYMBOL, GEM_NAME, GEM_SYMBOL
 
 router = Router(name="rating")
 
 
 @router.message(Command("rating"))
 async def cmd_rating(message: Message):
-    """Global (butun bot bo'yicha) reyting."""
+    """Global reyting — faqat Kizuna/ELO asosida. Sehirli Tosh reytingga ta'sir qilmaydi."""
     rows = await top_global(10)
     if not rows:
         await message.answer("Hali hech kim o'ynamagan 😅")
@@ -23,7 +24,6 @@ async def cmd_rating(message: Message):
 
 @router.message(Command("grouprating"))
 async def cmd_group_rating(message: Message):
-    """Faqat shu guruh ichidagi reyting."""
     if message.chat.type not in ("group", "supergroup"):
         await message.answer("Bu buyruq faqat guruhlarda ishlaydi.")
         return
@@ -45,7 +45,8 @@ async def cmd_profile(message: Message):
     title = f" «{u['title']}»" if u["title"] else ""
     await message.answer(
         f"👤 <b>{u['full_name']}{title}</b>\n"
-        f"⭐ ELO: {u['elo']}\n"
-        f"🎮 O'yinlar: {u['games_played']} (G'alaba: {u['wins']}, Mag'lubiyat: {u['losses']})\n"
-        f"🔗 Kizuna: {u['balance']}"
+        f"⭐ ELO (reyting): {u['elo']}\n"
+        f"🎮 O'yinlar: {u['games_played']} (G'alaba: {u['wins']}, Mag'lubiyat: {u['losses']})\n\n"
+        f"{CURRENCY_SYMBOL} {CURRENCY_NAME}: {u['balance']} <i>(o'yin natijasidan, reytingga bog'liq)</i>\n"
+        f"{GEM_SYMBOL} {GEM_NAME}: {u['gems']} <i>(kunlik bonus, reytingga ta'sir qilmaydi)</i>"
     )
