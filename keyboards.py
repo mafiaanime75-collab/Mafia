@@ -1,29 +1,25 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config import MAIN_GROUP_INVITE_LINK
 
 
-def genre_results_kb(genres: list[str]) -> InlineKeyboardMarkup:
+def world_results_kb(worlds: list[str]) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    for g in genres:
-        b.button(text=g, callback_data=f"genre:{g}")
+    for w in worlds:
+        b.button(text=w, callback_data=f"world:{w}")
     b.adjust(2)
     return b.as_markup()
 
 
-def genre_confirm_kb(genre: str) -> InlineKeyboardMarkup:
+def world_confirm_kb(world: str) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text=f"✅ {genre} tanlandi — Lobby ochish", callback_data=f"lobby_open:{genre}")
-    b.button(text="🔎 Boshqa janr qidirish", callback_data="genre_search_again")
+    b.button(text=f"✅ {world} tanlandi — Lobby ochish", callback_data=f"lobby_open:{world}")
+    b.button(text="🔎 Boshqa dunyo qidirish", callback_data="world_search_again")
     b.adjust(1)
     return b.as_markup()
 
 
 def lobby_share_kb(session_id: str) -> InlineKeyboardMarkup:
-    """
-    Rasmda ko'rsatilgandek: lobby'ni biror chatga ulashish (switch_inline_query orqali
-    foydalanuvchi o'zi chat tanlaydi) + asosiy o'yin guruhiga qo'shilish tugmasi.
-    """
     b = InlineKeyboardBuilder()
     b.button(text="📤 Guruhga ulashish", switch_inline_query=f"join:{session_id}")
     b.button(text="👥 Asosiy guruhga qo'shilish", url=MAIN_GROUP_INVITE_LINK)
