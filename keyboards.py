@@ -3,19 +3,24 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config import MAIN_GROUP_INVITE_LINK
 
 
+def main_menu_kb() -> InlineKeyboardMarkup:
+    """Bot ishga tushganda (/start) chiqadigan asosiy panel."""
+    b = InlineKeyboardBuilder()
+    b.button(text="🏮 Lobby ochish", callback_data="menu_open_lobby")
+    b.button(text="👤 Profilim", callback_data="menu_profile")
+    b.button(text="🏆 Reyting", callback_data="menu_rating")
+    b.button(text="🛍 Do'kon", callback_data="menu_shop")
+    b.button(text="💎 Kunlik bonus", callback_data="menu_daily")
+    b.button(text="📝 Taklif/Shikoyat", callback_data="menu_feedback")
+    b.adjust(1, 2, 2, 1)
+    return b.as_markup()
+
+
 def world_results_kb(worlds: list[str]) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for w in worlds:
         b.button(text=w, callback_data=f"world:{w}")
     b.adjust(2)
-    return b.as_markup()
-
-
-def world_confirm_kb(world: str) -> InlineKeyboardMarkup:
-    b = InlineKeyboardBuilder()
-    b.button(text=f"✅ {world} tanlandi — Lobby ochish", callback_data=f"lobby_open:{world}")
-    b.button(text="🔎 Boshqa dunyo qidirish", callback_data="world_search_again")
-    b.adjust(1)
     return b.as_markup()
 
 
@@ -41,5 +46,21 @@ def vote_kb(session_id: str, targets: list[tuple[int, str]]) -> InlineKeyboardMa
     b = InlineKeyboardBuilder()
     for uid, name in targets:
         b.button(text=f"🗳 {name}", callback_data=f"vote:{session_id}:{uid}")
+    b.adjust(1)
+    return b.as_markup()
+
+
+def feedback_kind_kb() -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    b.button(text="💡 Taklif", callback_data="fb_kind:taklif")
+    b.button(text="⚠️ Shikoyat", callback_data="fb_kind:shikoyat")
+    b.adjust(2)
+    return b.as_markup()
+
+
+def admin_feedback_item_kb(feedback_id: int) -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    b.button(text="✅ O'qildi deb belgilash", callback_data=f"fb_read:{feedback_id}")
+    b.button(text="🗑 O'chirish", callback_data=f"fb_del:{feedback_id}")
     b.adjust(1)
     return b.as_markup()
