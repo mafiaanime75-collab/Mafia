@@ -1,8 +1,5 @@
 """
-aiosqlite ma'lumotlar bazasi.
-Ikki valyuta:
-  - balance (Kizuna 🔗)   -> faqat o'yin natijasidan (g'alaba/mag'lubiyat/MVP), reytingga bog'liq
-  - gems (Sehirli Tosh 💎) -> kunlik bepul bonus, alohida do'kon, reytingga TA'SIR QILMAYDI
+aiosqlite ma'lumotlar bazasi (flat loyihaning bir qismi — subfolder yo'q).
 """
 import aiosqlite
 import json
@@ -48,8 +45,19 @@ CREATE TABLE IF NOT EXISTS purchases (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     item_key TEXT NOT NULL,
-    currency TEXT NOT NULL,   -- 'kizuna' | 'gem'
+    currency TEXT NOT NULL,
     purchased_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    full_name TEXT,
+    username TEXT,
+    kind TEXT NOT NULL,          -- 'taklif' | 'shikoyat'
+    text TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER
 );
 """
 
@@ -132,7 +140,6 @@ async def adjust_gems(user_id: int, amount: int):
 
 
 async def claim_daily_gems(user_id: int) -> tuple[bool, int]:
-    """Kuniga bir marta Sehirli Tosh olish. (muvaffaqiyat, qolgan_soat) qaytaradi."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute("SELECT last_daily FROM users WHERE user_id = ?", (user_id,))
@@ -181,4 +188,44 @@ async def save_session_state(session_id: str, state: dict, status: str | None = 
                 "UPDATE game_sessions SET state_json = ? WHERE session_id = ?",
                 (json.dumps(state), session_id),
             )
+        await db.commit()
+
+
+# ---------------- Taklif / Shikoyat (feedback) ----------------
+
+async def add_feedback(user_id: int, full_name: str, username: str, kind: str, text: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO feedback (user_id, full_name, username, kind, text, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, full_name, username, kind, text, int(time.time())),
+        )
+        await db.commit()
+
+
+async def list_unread_feedback(limit: int = 5) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM feedback WHERE is_read = 0 ORDER BY created_at ASC LIMIT ?", (limit,)
+        )
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def count_unread_feedback() -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("SELECT COUNT(*) FROM feedback WHERE is_read = 0")
+        row = await cur.fetchone()
+        return row[0] if row else 0
+
+
+async def mark_feedback_read(feedback_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE feedback SET is_read = 1 WHERE id = ?", (feedback_id,))
+        await db.commit()
+
+
+async def delete_feedback(feedback_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM feedback WHERE id = ?", (feedback_id,))
         await db.commit()
