@@ -4,16 +4,15 @@ from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery
 
 from handlers.lobby import ACTIVE_LOBBIES
+from genres import get_lore, generate_resident_name
 from game_engine import GameState, Player, build_role_list, Role, ROLE_LABELS_UZ, \
-    compute_elo_delta, compute_currency_reward
+    compute_elo_delta, compute_kizuna_reward
 from keyboards import night_action_kb, vote_kb
 from database import update_user_after_game, update_group_rating
-from data.genres import get_lore
 from config import MIN_PLAYERS, NIGHT_DURATION_SEC, DAY_DISCUSSION_SEC, VOTING_DURATION_SEC
 
 router = Router(name="game")
 
-# session_id -> GameState
 RUNNING_GAMES: dict[str, GameState] = {}
 
 
@@ -32,19 +31,26 @@ async def on_lobby_start(callback: CallbackQuery, bot: Bot):
         return
 
     group_id = callback.message.chat.id
-    genre = lobby["genre"]
-    game = GameState(session_id=session_id, group_id=group_id, genre=genre)
+    world = lobby["world"]
+    game = GameState(session_id=session_id, group_id=group_id, world=world)
 
     roles = build_role_list(len(lobby["players"]))
+    used_names = set()
     for (uid, name), role in zip(lobby["players"].items(), roles):
-        game.players[uid] = Player(user_id=uid, full_name=name, role=role)
+        resident_name = generate_resident_name()
+        while resident_name in used_names:
+            resident_name = generate_resident_name()
+        used_names.add(resident_name)
+        game.players[uid] = Player(user_id=uid, full_name=name, resident_name=resident_name, role=role)
 
     RUNNING_GAMES[session_id] = game
     await callback.answer("O'yin boshlanmoqda! 🎬")
 
-    lore = get_lore(genre)
+    lore = get_lore(world)
+    roster = "\n".join(f"• {p.full_name} → <b>{p.resident_name}</b>" for p in game.players.values())
     await callback.message.edit_text(
-        f"🎬 <b>O'yin boshlandi!</b>\nJanr: <b>{genre}</b> — {lore['world']}\n\n"
+        f"🎬 <b>O'yin boshlandi!</b>\nDunyo: <b>{world}</b> — {lore['world']}\n\n"
+        f"🧑‍🤝‍🧑 Aholi ismlari:\n{roster}\n\n"
         f"Rollar shaxsiy xabar orqali yuborildi. Omad tilaymiz!"
     )
 
@@ -53,10 +59,11 @@ async def on_lobby_start(callback: CallbackQuery, bot: Bot):
             await bot.send_message(
                 p.user_id,
                 f"🎭 Sizning rolingiz: <b>{ROLE_LABELS_UZ[p.role]}</b>\n"
-                f"Janr: {genre} ({lore['world']})",
+                f"🏷 Bu o'yindagi ismingiz: <b>{p.resident_name}</b>\n"
+                f"Dunyo: {world} ({lore['world']})",
             )
         except Exception:
-            pass  # foydalanuvchi botni shaxsiyga yozishga ruxsat bermagan bo'lishi mumkin
+            pass
 
     asyncio.create_task(run_game_loop(bot, session_id))
 
@@ -80,7 +87,7 @@ async def run_game_loop(bot: Bot, session_id: str):
         killed = game.resolve_night()
         winner = game.check_winner()
         if killed:
-            name = game.players[killed].full_name
+            name = game.players[killed].resident_name
             await bot.send_message(game.group_id, f"☠️ Tunda <b>{name}</b> yo'q qilindi.")
         else:
             await bot.send_message(game.group_id, "🌤 Bu tun hech kim halok bo'lmadi.")
@@ -90,7 +97,7 @@ async def run_game_loop(bot: Bot, session_id: str):
             return
 
         game.phase = "day_discussion"
-        alive_names = ", ".join(p.full_name for p in game.alive_players())
+        alive_names = ", ".join(p.resident_name for p in game.alive_players())
         await bot.send_message(
             game.group_id,
             f"☀️ <b>{game.day_number}-kun</b>. Tirik qolganlar: {alive_names}\n"
@@ -99,7 +106,7 @@ async def run_game_loop(bot: Bot, session_id: str):
         await asyncio.sleep(DAY_DISCUSSION_SEC)
 
         game.phase = "voting"
-        targets = [(p.user_id, p.full_name) for p in game.alive_players()]
+        targets = [(p.user_id, p.resident_name) for p in game.alive_players()]
         await bot.send_message(
             game.group_id,
             "🗳 Ovoz berish vaqti! Kimni chiqarib yubormoqchisiz?",
@@ -110,7 +117,7 @@ async def run_game_loop(bot: Bot, session_id: str):
         voted_out = game.resolve_vote()
         winner = game.check_winner()
         if voted_out:
-            name = game.players[voted_out].full_name
+            name = game.players[voted_out].resident_name
             role = ROLE_LABELS_UZ[game.players[voted_out].role]
             await bot.send_message(
                 game.group_id, f"⚖️ Ovoz natijasida <b>{name}</b> chiqarib yuborildi. Roli: {role}"
@@ -127,7 +134,7 @@ async def send_night_prompts(bot: Bot, game: GameState):
     alive = game.alive_players()
     for p in alive:
         if p.role in (Role.OYABUN, Role.KAGE):
-            targets = [(t.user_id, t.full_name) for t in alive if t.role not in (Role.OYABUN, Role.KAGE)]
+            targets = [(t.user_id, t.resident_name) for t in alive if t.role not in (Role.OYABUN, Role.KAGE)]
             try:
                 await bot.send_message(
                     p.user_id, "🗡 Bu kecha kimni yo'q qilamiz?",
@@ -136,7 +143,7 @@ async def send_night_prompts(bot: Bot, game: GameState):
             except Exception:
                 pass
         elif p.role == Role.MEITANTEI:
-            targets = [(t.user_id, t.full_name) for t in alive if t.user_id != p.user_id]
+            targets = [(t.user_id, t.resident_name) for t in alive if t.user_id != p.user_id]
             try:
                 await bot.send_message(
                     p.user_id, "🔍 Kimni tekshiramiz?",
@@ -145,7 +152,7 @@ async def send_night_prompts(bot: Bot, game: GameState):
             except Exception:
                 pass
         elif p.role == Role.IYASHI:
-            targets = [(t.user_id, t.full_name) for t in alive]
+            targets = [(t.user_id, t.resident_name) for t in alive]
             try:
                 await bot.send_message(
                     p.user_id, "💊 Kimni himoya qilamiz?",
@@ -201,7 +208,7 @@ async def finish_game(bot: Bot, game: GameState, winner: str):
         won = (winner == "mafia" and p.role in (Role.OYABUN, Role.KAGE)) or \
               (winner == "nakama" and p.role not in (Role.OYABUN, Role.KAGE))
         elo_delta = compute_elo_delta(won)
-        reward = compute_currency_reward(won)
+        reward = compute_kizuna_reward(won)
         await update_user_after_game(p.user_id, won, elo_delta, reward)
         await update_group_rating(game.group_id, p.user_id, won, elo_delta)
 
