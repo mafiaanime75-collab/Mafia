@@ -1,6 +1,11 @@
 """
-O'yin dvigateli. Qoida: o'yinchi soni qancha bo'lmasin (4-20 orasida),
-HAR DOIM kamida bitta Oyabun (mafia) va bitta Meitantei (komissar/detektiv)
+O'yin dvigateli. Rol ENUM'lari ichki ID sifatida statik qoladi
+(OYABUN/KAGE/MEITANTEI/IYASHI/NAKAMA), lekin FOYDALANUVCHIGA KO'RINADIGAN
+NOMI endi har doim genres.get_role_labels(world) orqali, TANLANGAN DUNYOGA
+QARAB dinamik olinadi — shu sababli "bitta nom bilan qolib ketish" yo'q.
+
+Qoida: o'yinchi soni 4 dan 20 gacha bo'lishi mumkin, lekin qancha bo'lmasin
+HAR DOIM kamida 1 ta OYABUN (mafia boshlig'i) va 1 ta MEITANTEI (komissar)
 bo'lishi SHART.
 """
 import random
@@ -9,38 +14,32 @@ from enum import Enum
 
 
 class Role(str, Enum):
-    OYABUN = "OYABUN"        # Mafia boshlig'i (Don)
-    KAGE = "KAGE"             # Mafia a'zosi
-    MEITANTEI = "MEITANTEI"   # Detektiv/Komissar
-    IYASHI = "IYASHI"         # Shifokor
-    NAKAMA = "NAKAMA"         # Tinch aholi
+    OYABUN = "oyabun"
+    KAGE = "kage"
+    MEITANTEI = "meitantei"
+    IYASHI = "iyashi"
+    NAKAMA = "nakama"
 
-
-ROLE_LABELS_UZ = {
-    Role.OYABUN: "🐍 Oyabun (Mafia Boshlig'i)",
-    Role.KAGE: "🗡 Kage (Mafia Soyasi)",
-    Role.MEITANTEI: "🔍 Meitantei (Komissar)",
-    Role.IYASHI: "💊 Iyashi-nin (Shifokor)",
-    Role.NAKAMA: "👤 Nakama (Tinch Aholi)",
-}
 
 MAFIA_ROLES = {Role.OYABUN, Role.KAGE}
 
 
+def role_label(role: Role, world: str) -> str:
+    """Berilgan dunyoga mos, foydalanuvchiga ko'rsatiladigan rol nomi."""
+    from genres import get_role_labels
+    return get_role_labels(world)[role.value]
+
+
 def build_role_list(player_count: int) -> list[Role]:
-    """
-    Qoida: player_count 4 dan 20 gacha. HAR DOIM kamida 1 Oyabun + 1 Meitantei bor.
-    Mafia umumiy soni ~ o'yinchilarning 25-30% (lekin kamida 1 ta).
-    """
     if player_count < 4:
         raise ValueError("Kamida 4 ta o'yinchi kerak")
     if player_count > 20:
         raise ValueError("Ko'pi bilan 20 ta o'yinchi bo'lishi mumkin")
 
     mafia_count = max(1, round(player_count * 0.28))
-    roles: list[Role] = [Role.OYABUN]           # majburiy: kamida 1 mafia boshlig'i
-    roles += [Role.KAGE] * (mafia_count - 1)     # qolgan mafia a'zolari
-    roles.append(Role.MEITANTEI)                 # majburiy: kamida 1 komissar
+    roles: list[Role] = [Role.OYABUN]            # majburiy: kamida 1 mafia boshlig'i
+    roles += [Role.KAGE] * (mafia_count - 1)
+    roles.append(Role.MEITANTEI)                  # majburiy: kamida 1 komissar
 
     if player_count >= 7:
         roles.append(Role.IYASHI)
@@ -56,7 +55,7 @@ def build_role_list(player_count: int) -> list[Role]:
 class Player:
     user_id: int
     full_name: str
-    resident_name: str = ""   # anime-uslub o'yin ichidagi taxallus
+    resident_name: str = ""
     role: Role = Role.NAKAMA
     alive: bool = True
 
