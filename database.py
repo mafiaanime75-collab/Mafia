@@ -1,15 +1,13 @@
 """
-aiosqlite asosidagi ma'lumotlar bazasi qatlami.
-Jadvallar:
-  users            - global profil: reyting (elo), valyuta balansi, g'alaba/mag'lubiyat soni
-  group_ratings    - har bir guruh ichidagi alohida reyting
-  game_sessions    - lobby/o'yin holati (JSON holida saqlanadi)
-  shop_purchases   - foydalanuvchi sotib olgan narsalar (unvon, sehrli buyum va h.k.)
+aiosqlite ma'lumotlar bazasi.
+Ikki valyuta:
+  - balance (Kizuna 🔗)   -> faqat o'yin natijasidan (g'alaba/mag'lubiyat/MVP), reytingga bog'liq
+  - gems (Sehirli Tosh 💎) -> kunlik bepul bonus, alohida do'kon, reytingga TA'SIR QILMAYDI
 """
 import aiosqlite
 import json
 import time
-from config import DB_PATH
+from config import DB_PATH, DAILY_GEM_REWARD
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -21,7 +19,8 @@ CREATE TABLE IF NOT EXISTS users (
     losses INTEGER NOT NULL DEFAULT 0,
     games_played INTEGER NOT NULL DEFAULT 0,
     balance INTEGER NOT NULL DEFAULT 100,
-    favorite_genre TEXT,
+    gems INTEGER NOT NULL DEFAULT 0,
+    last_daily INTEGER NOT NULL DEFAULT 0,
     title TEXT DEFAULT '',
     created_at INTEGER
 );
@@ -39,16 +38,17 @@ CREATE TABLE IF NOT EXISTS game_sessions (
     session_id TEXT PRIMARY KEY,
     group_id INTEGER NOT NULL,
     host_id INTEGER NOT NULL,
-    genre TEXT,
-    status TEXT NOT NULL DEFAULT 'lobby',   -- lobby | in_progress | finished
+    world TEXT,
+    status TEXT NOT NULL DEFAULT 'lobby',
     state_json TEXT,
     created_at INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS shop_purchases (
+CREATE TABLE IF NOT EXISTS purchases (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     item_key TEXT NOT NULL,
+    currency TEXT NOT NULL,   -- 'kizuna' | 'gem'
     purchased_at INTEGER
 );
 """
@@ -73,24 +73,17 @@ async def get_or_create_user(user_id: int, username: str = "", full_name: str = 
         )
         await db.commit()
         cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-        row = await cur.fetchone()
-        return dict(row)
+        return dict(await cur.fetchone())
 
 
-async def update_user_after_game(user_id: int, won: bool, elo_delta: int, currency_reward: int):
+async def update_user_after_game(user_id: int, won: bool, elo_delta: int, kizuna_reward: int):
     async with aiosqlite.connect(DB_PATH) as db:
-        if won:
-            await db.execute(
-                "UPDATE users SET wins = wins + 1, games_played = games_played + 1, "
-                "elo = elo + ?, balance = balance + ? WHERE user_id = ?",
-                (elo_delta, currency_reward, user_id),
-            )
-        else:
-            await db.execute(
-                "UPDATE users SET losses = losses + 1, games_played = games_played + 1, "
-                "elo = elo + ?, balance = balance + ? WHERE user_id = ?",
-                (elo_delta, currency_reward, user_id),
-            )
+        col = "wins" if won else "losses"
+        await db.execute(
+            f"UPDATE users SET {col} = {col} + 1, games_played = games_played + 1, "
+            f"elo = elo + ?, balance = balance + ? WHERE user_id = ?",
+            (elo_delta, kizuna_reward, user_id),
+        )
         await db.commit()
 
 
@@ -101,25 +94,18 @@ async def update_group_rating(group_id: int, user_id: int, won: bool, elo_delta:
             "ON CONFLICT(group_id, user_id) DO NOTHING",
             (group_id, user_id),
         )
-        if won:
-            await db.execute(
-                "UPDATE group_ratings SET wins = wins + 1, elo = elo + ? WHERE group_id = ? AND user_id = ?",
-                (elo_delta, group_id, user_id),
-            )
-        else:
-            await db.execute(
-                "UPDATE group_ratings SET losses = losses + 1, elo = elo + ? WHERE group_id = ? AND user_id = ?",
-                (elo_delta, group_id, user_id),
-            )
+        col = "wins" if won else "losses"
+        await db.execute(
+            f"UPDATE group_ratings SET {col} = {col} + 1, elo = elo + ? WHERE group_id = ? AND user_id = ?",
+            (elo_delta, group_id, user_id),
+        )
         await db.commit()
 
 
 async def top_global(limit: int = 10) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cur = await db.execute(
-            "SELECT * FROM users ORDER BY elo DESC, wins DESC LIMIT ?", (limit,)
-        )
+        cur = await db.execute("SELECT * FROM users ORDER BY elo DESC, wins DESC LIMIT ?", (limit,))
         return [dict(r) for r in await cur.fetchall()]
 
 
@@ -136,6 +122,40 @@ async def top_group(group_id: int, limit: int = 10) -> list[dict]:
 async def adjust_balance(user_id: int, amount: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
+        await db.commit()
+
+
+async def adjust_gems(user_id: int, amount: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET gems = gems + ? WHERE user_id = ?", (amount, user_id))
+        await db.commit()
+
+
+async def claim_daily_gems(user_id: int) -> tuple[bool, int]:
+    """Kuniga bir marta Sehirli Tosh olish. (muvaffaqiyat, qolgan_soat) qaytaradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT last_daily FROM users WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+        now = int(time.time())
+        last = row["last_daily"] if row else 0
+        if now - last < 86400:
+            remaining_h = (86400 - (now - last)) // 3600
+            return False, remaining_h
+        await db.execute(
+            "UPDATE users SET gems = gems + ?, last_daily = ? WHERE user_id = ?",
+            (DAILY_GEM_REWARD, now, user_id),
+        )
+        await db.commit()
+        return True, 0
+
+
+async def record_purchase(user_id: int, item_key: str, currency: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO purchases (user_id, item_key, currency, purchased_at) VALUES (?, ?, ?, ?)",
+            (user_id, item_key, currency, int(time.time())),
+        )
         await db.commit()
 
 
@@ -162,15 +182,3 @@ async def save_session_state(session_id: str, state: dict, status: str | None = 
                 (json.dumps(state), session_id),
             )
         await db.commit()
-
-
-async def load_session(session_id: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cur = await db.execute("SELECT * FROM game_sessions WHERE session_id = ?", (session_id,))
-        row = await cur.fetchone()
-        if not row:
-            return None
-        d = dict(row)
-        d["state"] = json.loads(d["state_json"] or "{}")
-        return d
