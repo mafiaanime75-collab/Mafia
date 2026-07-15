@@ -14,7 +14,7 @@ MAIN_GROUP_ID = int(os.getenv("MAIN_GROUP_ID", "-5305326142"))
 MAIN_GROUP_INVITE_LINK = os.getenv("MAIN_GROUP_INVITE_LINK", "https://t.me/+j5SvFE1hj75iNzUy")
 DB_PATH = os.getenv("DB_PATH", "animafia.db")
 
-_admin_ids_raw = os.getenv("ADMIN_IDS", "")
+_admin_ids_raw = os.getenv("6060306988", "6953139141")
 ADMIN_IDS = {int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip().isdigit()}
 
 # --- O'yin qoidalari ---
