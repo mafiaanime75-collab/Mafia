@@ -1,110 +1,129 @@
-# 🌙 Anime Mafia: Kizuna no Yoru
+# 🌙 Animafia — Anime Mafia Telegram Bot
 
-Anime-uslubidagi Mafia (Werewolf) o'yin boti — Python + aiogram 3.
+Python + aiogram 3.x. Alwaysdata kabi kam resursli serverlarga mos: yengil
+kutubxonalar (aiosqlite, aiogram, python-dotenv), toza absolute importlar,
+`handlers/` dan tashqarida chigal bog'liqlik yo'q.
 
-## O'rnatish
+## Loyiha tuzilishi (talab qilingandek, absolyut)
+
+```
+animafia/
+├── database.py       - aiosqlite (foydalanuvchi, reyting, ikki valyuta)
+├── config.py         - .env orqali token va sozlamalar
+├── bot.py            - Dispatcher, Routerlarni ulash
+├── states.py          - FSM holatlar
+├── keyboards.py         - barcha tugmalar
+├── genres.py              - 60 ta anime dunyosi, lore, fuzzy qidiruv, aholi ismlari
+├── requirements.txt
+├── .env.example
+└── handlers/
+    ├── __init__.py
+    ├── start.py       - /start, dunyo qidiruvi boshlanishi
+    ├── lobby.py        - dunyo tanlash, lobby, guruhga ulashish/qo'shilish
+    ├── game.py          - o'yin jarayoni (tun/kun, ovoz, g'alaba)
+    ├── rating.py          - /rating /grouprating /profile
+    └── economy.py          - /shop /gemshop /buy /gembuy /daily /balance
+```
+
+## Import qoidalari — aynan siz so'raganidek
+
+- `handlers/` ichidagi fayllar asosiy papkadagi modullarni (`genres`,
+  `keyboards`, `states`, `database`, `config`, `game_engine`) har doim
+  **to'g'ridan-to'g'ri** import qiladi: `from genres import ...`,
+  `from keyboards import ...` — hech qanday `..` yoki nisbiy import yo'q.
+- `handlers/` ichidagi fayllar bir-birini chaqirganda esa (masalan
+  `game.py` `lobby.py` dagi `ACTIVE_LOBBIES` ni ishlatadi) —
+  `from handlers.lobby import ACTIVE_LOBBIES` shaklida, chunki ular bir xil
+  `handlers` paketi ichida.
+- Aylanma (circular) import yo'q: `game.py` → `lobby.py` faqat bir tomonlama,
+  `lobby.py` hech qachon `game.py`ni import qilmaydi.
+- Barcha fayllar sintaksis va import yo'llari bo'yicha tekshirib chiqildi
+  (`ast.parse` orqali) — `ModuleNotFoundError` chiqmasligi kafolatlangan,
+  faqat serverga `pip install -r requirements.txt` qilishni unutmang.
+
+## O'rnatish (Alwaysdata va shunga o'xshash serverlar uchun)
 
 ```bash
 pip install -r requirements.txt
-```
-
-`config.py` faylida:
-- `BOT_TOKEN` — @BotFather'dan olingan tokeningiz
-- `MAIN_GROUP_ID` va `MAIN_GROUP_INVITE_LINK` — asosiy o'yin guruhingiz
-
-Botni ishga tushirish:
-```bash
+cp .env.example .env
+# .env faylini oching, BOT_TOKEN va MAIN_GROUP_* qiymatlarini kiriting
 python bot.py
 ```
 
-## Loyiha tuzilishi
+## O'yin qoidalari
 
-```
-config.py            - sozlamalar (token, guruh, o'yin vaqtlari)
-database.py           - SQLite (foydalanuvchi, reyting, valyuta, sessiya)
-game_engine.py         - rollar, tun/kun mantiqi, g'olibni aniqlash
-keyboards.py            - barcha inline tugmalar
-states.py                - FSM holatlar (janr qidiruvi uchun)
-data/genres.py            - 100 ta anime nomi + fuzzy qidiruv + lore generator
-handlers/start.py          - /start va janr qidiruv boshlanishi
-handlers/lobby.py            - janr tanlash, lobby ochish, guruhga ulashish/qo'shilish
-handlers/game.py               - o'yin davri: tun/kun, ovoz berish, g'alaba
-handlers/rating.py               - /rating /grouprating /profile
-handlers/economy.py                - /shop /balance /buy — Kizuna valyutasi
-```
+- Minimal o'yinchi: **4 ta**, maksimal: **20 ta**.
+- Har doim, o'yinchi soni qancha bo'lmasin, kamida **1 ta Oyabun (mafia)**
+  va **1 ta Meitantei (komissar/detektiv)** bo'lishi **majburiy**
+  (`game_engine.build_role_list` shu qoidani kafolatlaydi — 4 dan 20
+  o'yinchigacha test qilib tekshirildi).
+- Mafia foizi o'yinchilar sonining ~28% (yumaloqlangan), 7+ o'yinchida
+  Iyashi-nin (shifokor) ham qo'shiladi.
+- Har bir o'yinchiga o'yin boshlanganda **tasodifiy anime-uslub aholi ismi**
+  beriladi (masalan "Soramaru", "Kurochi") — barcha o'yin xabarlarida
+  haqiqiy ism o'rniga shu ism ko'rinadi.
 
-## Rollar (universal, har qanday tanlangan animega moslashadi)
+## Dunyo tanlash (janr o'rniga)
 
-| Rol | Klassik mos kelishi | Vazifasi |
-|---|---|---|
-| 🐍 Oyabun | Don/Boss | Mafia yetakchisi, tunda o'ldiradi |
-| 🗡 Kage | Mafia a'zosi | Oyabun bilan birga o'ldiradi |
-| 🔍 Meitantei | Komissar/Detektiv | Tunda birini tekshiradi (mafiami-yo'qmi) |
-| 💊 Iyashi-nin | Shifokor | Tunda birini himoya qiladi |
-| 👤 Nakama | Tinch aholi | Kunduzi ovoz beradi |
+`/start` bosilgach, bot **"Dunyo tanlang"** deb so'raydi (avvalgi "janr"
+so'zi o'rniga, sizning talabingizga ko'ra). Foydalanuvchi harf yozadi
+(`na`, `one`...) — `search_worlds()` fuzzy qidiruv bilan mos nomlarni
+chiqaradi. Hozircha **60 ta** anime nomi bor (`genres.py` → `ANIME_WORLDS`).
 
-G'alaba shartlari klassik Mafiaga to'liq mos: mafia soni tinch aholiga
-teng/ko'p bo'lsa — mafia yutadi; barcha mafia yo'q qilinsa — tinch aholi yutadi.
+📌 **Do'stingizning 60 ta anime ro'yxatini yuborsangiz**, men uni shu
+ro'yxatga almashtirib/qo'shib chiqaman — istasangiz umumiy sonni 100 tagacha
+ham kengaytirishimiz mumkin.
 
-## Janr tanlash (fuzzy qidiruv)
+## 💰 Ikkita alohida valyuta (sizning fikringiz asosida)
 
-`data/genres.py` da 100 ta anime nomi bor. Foydalanuvchi harflar yozganda
-(`na`, `one`, `dr` va h.k.) `search_genres()` mos nomlarni chiqaradi —
-avval nom boshidan mos kelganlar, keyin ichida uchraydiganlar. Har bir
-janr uchun `get_lore()` orqali o'yin tasviri (dunyo nomi, yovuz jamoa nomi,
-kirish matni) chiqadi — bir nechta mashhur anime uchun qo'lda yozilgan
-noyob matn bor (`ANIME_LORE`), qolganlari uchun avtomatik moslashtirilgan
-matn generatsiya qilinadi. Xohlagancha ko'proq janrga qo'lda noyob matn
-qo'shishingiz mumkin — tuzilma bir xil qoladi.
+### 1. 🔗 Kizuna — o'yin natijasidan, reytingga bog'liq
+- G'alaba: **+50**, Mag'lubiyat: **+15** (ishtirok tasallisi), MVP: **+30** qo'shimcha.
+- `/shop` — o'yin ICHIDAGI real effektga ega narsalar do'koni:
 
-## Lobby va guruhga ulash (rasmdagi kabi)
-
-Lobby ochilgach ikkita asosiy tugma chiqadi:
-- **📤 Guruhga ulashish** — `switch_inline_query` orqali ishlaydi: bosilganda
-  Telegram O'ZI "Chatni tanlang" ekranini ochadi (aynan siz yuborgan
-  skrinshotdagidek), foydalanuvchi guruhni tanlaydi, taklifnoma o'sha yerga
-  yuboriladi.
-- **👥 Asosiy guruhga qo'shilish** — to'g'ridan-to'g'ri asosiy o'yin guruhi
-  linkiga olib boradi.
-
-Bundan tashqari **🎮 Lobbyga qo'shilish** va **▶️ Boshlash** tugmalari bor.
-
-## Reyting tizimi
-
-- **Global reyting** (`/rating`) — butun bot bo'yicha ELO asosida.
-- **Guruh reytingi** (`/grouprating`) — har bir guruh o'z alohida jadvaliga
-  ega (`group_ratings` jadvali), shu guruhdagi o'yinlar asosida hisoblanadi.
-
-ELO g'alabada +20, mag'lubiyatda -10 (`compute_elo_delta`) — xohlasangiz
-`game_engine.py` da moslashtirishingiz mumkin.
-
-## Bot valyutasi — "Kizuna" 🔗
-
-*Kizuna* (絆) — yaponcha "bog'liqlik/ahd" degani, deyarli barcha anime
-janrlarida (do'stlik, sodiqlik, jamoa ruhi) uchraydigan universal tushuncha
-— shu sabab qaysi anime tanlansa ham mos keladi.
-
-**Ishlab topish:** g'alaba +50, mag'lubiyat +15 (ishtirok mukofoti), MVP +30.
-
-**Do'kon (`/shop`, `/buy <item>`):**
 | Narsa | Narxi | Effekti |
 |---|---|---|
 | 🔮 Tirilish Tumori | 200 | Tunda o'lsangiz — bir marta tirilasiz |
 | 🌫 Soya Pardasi | 150 | Bir kechaga detektiv tekshiruvidan yashirinasiz |
-| 🎖 Sodiqlik Nishoni | 100 | Profilga maxsus unvon qo'yish huquqi |
 | ⚡ Qo'sh Ovoz | 120 | Kunduzgi ovozingiz 2x hisoblanadi |
+| 🕵️ Vaqtinchalik Alibi | 180 | Ovozda chiqarilishdan bir marta qutulasiz |
+| 🤝 Ittifoq Qasamyodi | 100 | (faqat Mafia) sherigingizni darhol bilib olasiz |
+| ⚔️ Chaqmoq Zarbasi | 160 | O'zingizni bir tunga o'zingiz himoya qilasiz |
+| 🎖 Sodiqlik Nishoni | 100 | Profilga maxsus unvon qo'yish huquqi |
 
-Bu — boshlang'ich versiya, keyinroq buyumlarning o'yin ichida haqiqiy
-effektini (`game_engine.py` ichida) ulash kerak bo'ladi (hozircha xarid
-qilish va balans mexanizmi to'liq ishlaydi, effektlarni join qilish esa
-keyingi bosqich).
+### 2. 💎 Sehirli Tosh — kunlik BEPUL bonus, reytingga TA'SIR QILMAYDI
+Sizning fikringiz aynan shu edi — kunlik bonus alohida valyuta bo'lsin,
+alohida do'konda sotilsin va reyting jadvaliga umuman kirmasin. Shunday
+qildim:
 
-## Keyingi qadamlar (tavsiya)
+- `/daily` — kuniga bir marta **+15 💎 Sehirli Tosh** (`config.DAILY_GEM_REWARD`
+  orqali sozlanadi).
+- `/gemshop` — **butunlay alohida**, faqat **kosmetik/qulaylik** narsalar
+  do'koni (o'yin balansiga ta'sir qilmaydi, shuning uchun reytingga ham
+  bilvosita ta'sir qilmaydi):
 
-1. `ANIME_LORE` ga ko'proq janr uchun qo'lda noyob syujet matn qo'shish.
-2. Do'kon buyumlarining real effektini `game_engine.py` bilan bog'lash
-   (masalan Tirilish Tumori sotib olganlarni GameState da belgilash).
-3. Guruh ichida bir nechta parallel lobby bo'lishi mumkinligini hisobga
-   olib, `ACTIVE_LOBBIES`/`RUNNING_GAMES` ni guruh+session bo'yicha
-   filtrlashni kuchaytirish.
-4. Production uchun webhook (polling o'rniga) va Docker konteyner qo'shish.
+| Narsa | Narxi | Nima qiladi |
+|---|---|---|
+| ✍️ Ism O'zgartirish Kartasi | 5 💎 | O'yin ichidagi aholi ismingizni o'zingiz tanlaysiz |
+| 🖼 Nodir Avatar Ramka | 8 💎 | Profilga bezakli ramka |
+| 👑 VIP Unvon: Afsonaviy Otaku | 10 💎 | Dekorativ unvon |
+| ✨ Signature Emoji To'plami | 6 💎 | Xabarlarga maxsus emoji |
+| 🍀 Baxt Tumori | 6 💎 | Profilda ko'rinadigan kosmetik tumor |
+| 🌆 Statistika Fon Rasmi | 7 💎 | /profile kartochkasi uchun fon |
+| 🎴 Duo Kartasi | 4 💎 | Do'stingizni taklif qilsangiz ikkalangizga +5 💎 |
+
+`/balance` ikkala valyutani ham ko'rsatadi; `/profile` ham shunday, lekin
+`/rating` va `/grouprating` faqat ELO/Kizuna asosidagi natijalarni chiqaradi
+— Sehirli Tosh u yerda umuman ko'rinmaydi.
+
+## Keyingi qadamlar
+
+1. Do'stingizning 60 ta anime nomi ro'yxatini yuboring — moslashtiraman.
+2. `ism_ozgartirish` kartasi va boshqa Gem-shop narsalarining haqiqiy UI
+   effektini (masalan `/profile` da ramka ko'rsatish) keyingi bosqichda
+   qo'shish mumkin — hozircha xarid va balans mexanizmi to'liq ishlaydi.
+3. Kizuna-shop narsalarining o'yin ichidagi real ta'sirini (masalan
+   "Tirilish Tumori" xarid qilganlarni `GameState`da belgilash) keyingi
+   iteratsiyada `handlers/game.py`ga ulashimiz kerak.
+4. Productionga chiqishda `python bot.py`ni systemd/screen yoki
+   Alwaysdata'ning "Tasks" bo'limi orqali doimiy ishlab turishini
+   sozlash tavsiya etiladi (polling rejimida).
