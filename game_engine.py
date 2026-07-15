@@ -1,22 +1,7 @@
 """
-O'yin dvigateli — klassik Mafia (Werewolf) qoidalarining anime-uslubdagi
-qayta ishlangan versiyasi. Rollar universal (istalgan tanlangan anime
-janriga moslashadi), faqat nomlar va lore matnlar tanlangan janrga
-qarab data/genres.py orqali "bo'yaladi".
-
-ROLLAR:
-  OYABUN      - Mafia yetakchisi (klassik "Don"). Har kecha bitta o'yinchini
-                yo'q qilishni tanlaydi (o'z jamoasi bilan maslahatlashib).
-  KAGE        - Mafia a'zosi/soyasi. Oyabun bilan birga tungi ovoz beradi.
-  MEITANTEI   - Buyuk detektiv (klassik "Komissar"). Har kecha bitta
-                o'yinchini tekshirib, u mafiami-emasmi bilib oladi.
-  IYASHI-NIN  - Shifokor. Har kecha bitta o'yinchini himoya qiladi
-                (o'zini ketma-ket 2 marta himoya qila olmaydi).
-  NAKAMA      - Oddiy fuqaro. Maxsus qobiliyati yo'q, faqat kunduzi ovoz beradi.
-
-G'alaba shartlari klassik mafiaga to'liq mos:
-  - Mafia soni tinch aholi soniga teng yoki ko'p bo'lsa -> Mafia g'alabasi
-  - Barcha mafia a'zolari yo'q qilinsa -> Tinch aholi g'alabasi
+O'yin dvigateli. Qoida: o'yinchi soni qancha bo'lmasin (4-20 orasida),
+HAR DOIM kamida bitta Oyabun (mafia) va bitta Meitantei (komissar/detektiv)
+bo'lishi SHART.
 """
 import random
 from dataclasses import dataclass, field
@@ -24,17 +9,17 @@ from enum import Enum
 
 
 class Role(str, Enum):
-    OYABUN = "OYABUN"          # Mafia boshlig'i
-    KAGE = "KAGE"              # Mafia a'zosi
-    MEITANTEI = "MEITANTEI"    # Detektiv
-    IYASHI = "IYASHI"          # Shifokor
-    NAKAMA = "NAKAMA"          # Tinch aholi
+    OYABUN = "OYABUN"        # Mafia boshlig'i (Don)
+    KAGE = "KAGE"             # Mafia a'zosi
+    MEITANTEI = "MEITANTEI"   # Detektiv/Komissar
+    IYASHI = "IYASHI"         # Shifokor
+    NAKAMA = "NAKAMA"         # Tinch aholi
 
 
 ROLE_LABELS_UZ = {
     Role.OYABUN: "🐍 Oyabun (Mafia Boshlig'i)",
     Role.KAGE: "🗡 Kage (Mafia Soyasi)",
-    Role.MEITANTEI: "🔍 Meitantei (Detektiv)",
+    Role.MEITANTEI: "🔍 Meitantei (Komissar)",
     Role.IYASHI: "💊 Iyashi-nin (Shifokor)",
     Role.NAKAMA: "👤 Nakama (Tinch Aholi)",
 }
@@ -44,19 +29,19 @@ MAFIA_ROLES = {Role.OYABUN, Role.KAGE}
 
 def build_role_list(player_count: int) -> list[Role]:
     """
-    O'yinchilar soniga qarab rol ro'yxatini tuzadi.
-    Nisbat: mafia ~ jami o'yinchilarning 25-30% atrofida, 1 detektiv, 1 shifokor
-    (agar o'yinchi yetarli bo'lsa), qolganlari tinch aholi.
+    Qoida: player_count 4 dan 20 gacha. HAR DOIM kamida 1 Oyabun + 1 Meitantei bor.
+    Mafia umumiy soni ~ o'yinchilarning 25-30% (lekin kamida 1 ta).
     """
-    if player_count < 5:
-        raise ValueError("Kamida 5 ta o'yinchi kerak")
+    if player_count < 4:
+        raise ValueError("Kamida 4 ta o'yinchi kerak")
+    if player_count > 20:
+        raise ValueError("Ko'pi bilan 20 ta o'yinchi bo'lishi mumkin")
 
     mafia_count = max(1, round(player_count * 0.28))
-    roles: list[Role] = [Role.OYABUN]
-    mafia_count -= 1
-    roles += [Role.KAGE] * mafia_count
+    roles: list[Role] = [Role.OYABUN]           # majburiy: kamida 1 mafia boshlig'i
+    roles += [Role.KAGE] * (mafia_count - 1)     # qolgan mafia a'zolari
+    roles.append(Role.MEITANTEI)                 # majburiy: kamida 1 komissar
 
-    roles.append(Role.MEITANTEI)
     if player_count >= 7:
         roles.append(Role.IYASHI)
 
@@ -71,6 +56,7 @@ def build_role_list(player_count: int) -> list[Role]:
 class Player:
     user_id: int
     full_name: str
+    resident_name: str = ""   # anime-uslub o'yin ichidagi taxallus
     role: Role = Role.NAKAMA
     alive: bool = True
 
@@ -79,15 +65,15 @@ class Player:
 class GameState:
     session_id: str
     group_id: int
-    genre: str
+    world: str
     players: dict[int, Player] = field(default_factory=dict)
-    phase: str = "lobby"          # lobby | night | day_discussion | voting | finished
+    phase: str = "lobby"
     day_number: int = 0
     night_kill_target: int | None = None
     doctor_protect_target: int | None = None
     doctor_last_protect: int | None = None
-    votes: dict[int, int] = field(default_factory=dict)   # voter_id -> target_id
-    winner: str | None = None      # "mafia" | "nakama" | None
+    votes: dict[int, int] = field(default_factory=dict)
+    winner: str | None = None
 
     def alive_players(self) -> list[Player]:
         return [p for p in self.players.values() if p.alive]
@@ -108,10 +94,9 @@ class GameState:
         return None
 
     def resolve_night(self):
-        """Tungi harakatlarni hisoblash: o'ldirish va davolashni solishtirish."""
         target = self.night_kill_target
         if target is not None and target == self.doctor_protect_target:
-            target = None  # shifokor qutqarib qoldi
+            target = None
         if target is not None and target in self.players:
             self.players[target].alive = False
         self.doctor_last_protect = self.doctor_protect_target
@@ -120,7 +105,6 @@ class GameState:
         return target
 
     def resolve_vote(self) -> int | None:
-        """Kunduzgi ovoz berish natijasini hisoblash — eng ko'p ovoz olgan chiqib ketadi."""
         if not self.votes:
             return None
         tally: dict[int, int] = {}
@@ -129,7 +113,7 @@ class GameState:
         max_votes = max(tally.values())
         top = [uid for uid, v in tally.items() if v == max_votes]
         if len(top) > 1:
-            return None  # durrang - hech kim chiqmaydi
+            return None
         chosen = top[0]
         if chosen in self.players:
             self.players[chosen].alive = False
@@ -141,7 +125,7 @@ def compute_elo_delta(won: bool, base: int = 20) -> int:
     return base if won else -base // 2
 
 
-def compute_currency_reward(won: bool, is_mvp: bool = False) -> int:
+def compute_kizuna_reward(won: bool, is_mvp: bool = False) -> int:
     reward = 50 if won else 15
     if is_mvp:
         reward += 30
