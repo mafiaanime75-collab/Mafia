@@ -13,10 +13,25 @@ def _is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
 
+@router.message(Command("myid"))
+async def cmd_myid(message: Message):
+    """Har kim o'z Telegram ID raqamini bilishi uchun — ADMIN_IDS ga shu raqam kerak."""
+    await message.answer(
+        f"🆔 Sizning Telegram ID raqamingiz: <code>{message.from_user.id}</code>\n\n"
+        f"Buni <b>.env</b> faylidagi <code>ADMIN_IDS</code> ga (yoki config.py dagi "
+        f"<code>ADMIN_IDS_HARDCODED</code> ro'yxatiga) qo'shing va botni QAYTA ISHGA TUSHIRING "
+        f"(.env o'zgarishi faqat restartdan keyin kuchga kiradi)."
+    )
+
+
 @router.message(Command("admin"))
 async def cmd_admin(message: Message):
     if not _is_admin(message.from_user.id):
-        await message.answer("⛔ Sizda admin panelga kirish huquqi yo'q.")
+        await message.answer(
+            f"⛔ Sizda admin panelga kirish huquqi yo'q.\n\n"
+            f"Sizning ID: <code>{message.from_user.id}</code>\n"
+            f"Buni ADMIN_IDS ga qo'shib, botni QAYTA ISHGA TUSHIRING."
+        )
         return
     unread = await count_unread_feedback()
     await message.answer(
