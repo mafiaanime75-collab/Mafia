@@ -14,8 +14,18 @@ MAIN_GROUP_ID = int(os.getenv("MAIN_GROUP_ID", "-5305326142"))
 MAIN_GROUP_INVITE_LINK = os.getenv("MAIN_GROUP_INVITE_LINK", "https://t.me/+j5SvFE1hj75iNzUy")
 DB_PATH = os.getenv("DB_PATH", "animafia.db")
 
-_admin_ids_raw = os.getenv("6060306988", "6953139141")
-ADMIN_IDS = {int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip().isdigit()}
+_admin_ids_raw = os.getenv("6060306988", "")
+# Vergul, bo'sh joy yoki qator ko'chirish bilan ajratilgan bo'lishi mumkin
+_admin_ids_from_env = {
+    int(tok) for tok in _admin_ids_raw.replace(",", " ").replace(";", " ").split()
+    if tok.strip().lstrip("-").isdigit()
+}
+
+# AGAR .env bilan ishlash noqulay bo'lsa — ID'ingizni to'g'ridan-to'g'ri
+# shu yerga, qavs ichiga yozishingiz ham mumkin (masalan: {123456789}):
+ADMIN_IDS_HARDCODED: set[int] = set()
+
+ADMIN_IDS = _admin_ids_from_env | ADMIN_IDS_HARDCODED
 
 # --- O'yin qoidalari ---
 MIN_PLAYERS = 4
