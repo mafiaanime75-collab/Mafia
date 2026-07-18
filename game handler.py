@@ -1,27 +1,25 @@
 import asyncio
 
 from aiogram import Router, F, Bot
-from aiogram.types import CallbackQuery, Message
-from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery
 
 from lobby_handler import ACTIVE_LOBBIES
-from genres import get_lore, get_resident_pool, search_worlds
+from genres import get_lore, get_resident_pool, WORLDS
 from game_engine import GameState, Player, build_role_list, Role, role_label, \
     compute_elo_delta, compute_kizuna_reward
-from keyboards import night_action_kb, vote_kb, world_results_kb
+from keyboards import night_action_kb, vote_kb, world_page_kb
 from database import update_user_after_game, update_group_rating
-from states import WorldSelect
 from config import MIN_PLAYERS, NIGHT_DURATION_SEC, DAY_DISCUSSION_SEC, VOTING_DURATION_SEC
 
 router = Router(name="game_handler")
 
 RUNNING_GAMES: dict[str, GameState] = {}
-# host_id -> session_id (o'yin boshlanishi kutilayotgan lobby)
+# host_id -> session_id (o'yin boshlanishi kutilayotgan lobby, dunyo tanlash jarayonida)
 PENDING_WORLD_SELECTION: dict[int, str] = {}
 
 
 @router.callback_query(F.data.startswith("lobby_start:"))
-async def on_lobby_start(callback: CallbackQuery, state: FSMContext):
+async def on_lobby_start(callback: CallbackQuery):
     session_id = callback.data.split("lobby_start:", 1)[1]
     lobby = ACTIVE_LOBBIES.get(session_id)
     if not lobby:
@@ -35,36 +33,33 @@ async def on_lobby_start(callback: CallbackQuery, state: FSMContext):
         return
 
     PENDING_WORLD_SELECTION[callback.from_user.id] = session_id
-    await state.set_state(WorldSelect.waiting_query)
-    await state.update_data(session_id=session_id)
-
     await callback.message.answer(
-        f"🌍 <b>{callback.from_user.full_name}</b>, o'yin uchun ANIME DUNYOSINI tanlang!\n"
-        f"Nomini yozing (masalan: <i>naruto</i>, <i>tokyo</i>...):"
+        f"🌍 <b>{callback.from_user.full_name}</b>, o'yin uchun ANIME DUNYOSINI tugma orqali tanlang:",
+        reply_markup=world_page_kb(WORLDS, page=0),
     )
     await callback.answer()
 
 
-@router.message(WorldSelect.waiting_query, F.text)
-async def on_world_query(message: Message, state: FSMContext):
-    data = await state.get_data()
-    session_id = data.get("session_id")
-    if not session_id or PENDING_WORLD_SELECTION.get(message.from_user.id) != session_id:
-        return  # bu holat boshqa foydalanuvchiga tegishli emas
+@router.callback_query(F.data == "wpage_noop")
+async def on_wpage_noop(callback: CallbackQuery):
+    await callback.answer()
 
-    results = search_worlds(message.text.strip(), limit=8)
-    if not results:
-        await message.answer("Bunday dunyo topilmadi 😔 Boshqa nom bilan urinib ko'ring.")
+
+@router.callback_query(F.data.startswith("wpage:"))
+async def on_world_page(callback: CallbackQuery):
+    if PENDING_WORLD_SELECTION.get(callback.from_user.id) is None:
+        await callback.answer("Bu tanlov sizga tegishli emas.", show_alert=True)
         return
-    await message.answer("🔎 Natijalar:", reply_markup=world_results_kb(results))
+    page = int(callback.data.split("wpage:", 1)[1])
+    await callback.message.edit_reply_markup(reply_markup=world_page_kb(WORLDS, page=page))
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("world:"))
-async def on_world_chosen(callback: CallbackQuery, state: FSMContext, bot: Bot):
+async def on_world_chosen(callback: CallbackQuery, bot: Bot):
     world = callback.data.split("world:", 1)[1]
-    data = await state.get_data()
-    session_id = data.get("session_id")
-    if not session_id or PENDING_WORLD_SELECTION.get(callback.from_user.id) != session_id:
+    session_id = PENDING_WORLD_SELECTION.get(callback.from_user.id)
+    if not session_id:
         await callback.answer("Bu tanlov sizga tegishli emas.", show_alert=True)
         return
 
@@ -75,7 +70,6 @@ async def on_world_chosen(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
     lobby["world"] = world
     PENDING_WORLD_SELECTION.pop(callback.from_user.id, None)
-    await state.clear()
 
     lore = get_lore(world)
     await callback.message.edit_text(
