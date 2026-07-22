@@ -1,43 +1,50 @@
-"""
-Sozlamalar. Alwaysdata kabi serverlarda .env fayl orqali yuklanadi.
-DIQQAT: Bu loyihada HECH QANDAY subfolder (handlers/ va h.k.) ishlatilmaydi —
-barcha .py fayllar bitta papkada, tekis (flat) joylashgan. GitHub'ga papkasiz
-joylashtirilganda ham hech narsa buzilmaydi.
-"""
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Barcha fayllarni to'liq o'zbek tilida yaratamiz
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8613383536:AAFtxKbwkbo6jwpU_AI-oHdoHLstw-8DcjE")
-MAIN_GROUP_ID = int(os.getenv("MAIN_GROUP_ID", "-5305326142"))
-MAIN_GROUP_INVITE_LINK = os.getenv("MAIN_GROUP_INVITE_LINK", "https://t.me/+j5SvFE1hj75iNzUy")
-DB_PATH = os.getenv("DB_PATH", "animafia.db")
+# 1. config.py - Konfiguratsiya
+config_content = '''# ============ ANIMAFIA BOT KONFIGURATSIYA ============
+# ⚠️ BU YERGA O'ZGARTIRISH KIRITING!
 
-_admin_ids_raw = os.getenv("6060306988", "")
-# Vergul, bo'sh joy yoki qator ko'chirish bilan ajratilgan bo'lishi mumkin
-_admin_ids_from_env = {
-    int(tok) for tok in _admin_ids_raw.replace(",", " ").replace(";", " ").split()
-    if tok.strip().lstrip("-").isdigit()
-}
+# Bot token (BotFather'dan olingan)
+BOT_TOKEN = "8613383536:AAFtxKbwkbo6jwpU_AI-oHdoHLstw-8DcjE"
 
-# AGAR .env bilan ishlash noqulay bo'lsa — ID'ingizni to'g'ridan-to'g'ri
-# shu yerga, qavs ichiga yozishingiz ham mumkin (masalan: {123456789}):
-ADMIN_IDS_HARDCODED: set[int] = set()
+# Admin ID (6060306988)
+# @userinfobot dan olishingiz mumkin
+ADMIN_ID = 6060306988
 
-ADMIN_IDS = _admin_ids_from_env | ADMIN_IDS_HARDCODED
+# Asosiy guruh havolasi
+MAIN_GROUP_LINK = "https://t.me/+j5SvFE1hj75iNzUy"
 
-# --- O'yin qoidalari ---
+# O'yin sozlamalari
 MIN_PLAYERS = 4
 MAX_PLAYERS = 20
-NIGHT_DURATION_SEC = 45
-DAY_DISCUSSION_SEC = 90
-VOTING_DURATION_SEC = 40
 
-# --- Valyutalar ---
-CURRENCY_NAME = "Kizuna"
-CURRENCY_SYMBOL = "🔗"
+# Kunlik bonus darajalari
+DAILY_BONUS_LEVELS = {
+    1: {"days": 3, "stones": 10, "name": "🥉 Bronza"},
+    2: {"days": 5, "stones": 25, "name": "🥈 Kumush"},
+    3: {"days": 8, "stones": 50, "name": "🥇 Oltin"},
+    4: {"days": 12, "stones": 100, "name": "💎 Olmos"},
+    5: {"days": 17, "stones": 200, "name": "👑 Qirol"},
+    6: {"days": 25, "stones": 500, "name": "🔥 Afsona"},
+    7: {"days": 35, "stones": 1000, "name": "⚡ Xudo"},
+    8: {"days": 50, "stones": 2500, "name": "🌌 Koinot"},
+}
 
-GEM_NAME = "Sehirli Tosh"
-GEM_SYMBOL = "💎"
-DAILY_GEM_REWARD = 15
+# Liga darajalari
+LEAGUES = {
+    1: {"name": "🥉 Bronza Liga", "min_games": 0, "icon": "🥉"},
+    2: {"name": "🥈 Kumush Liga", "min_games": 10, "icon": "🥈"},
+    3: {"name": "🥇 Oltin Liga", "min_games": 30, "icon": "🥇"},
+    4: {"name": "💎 Olmos Liga", "min_games": 60, "icon": "💎"},
+    5: {"name": "👑 Qirol Liga", "min_games": 100, "icon": "👑"},
+    6: {"name": "🔥 Afsona Liga", "min_games": 150, "icon": "🔥"},
+    7: {"name": "⚡ Xudo Liga", "min_games": 220, "icon": "⚡"},
+    8: {"name": "🌌 Koinot Liga", "min_games": 300, "icon": "🌌"},
+}
+'''
+
+with open('/mnt/agents/output/animafia_bot/config.py', 'w', encoding='utf-8') as f:
+    f.write(config_content)
+
+print("✅ config.py yaratildi!")
