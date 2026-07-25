@@ -23,7 +23,7 @@ DAILY_BONUS_LEVELS = {
     4: {"days": 12, "stones": 100, "name": "💎 Olmos"},
     5: {"days": 17, "stones": 200, "name": "👑 Qirol"},
     6: {"days": 25, "stones": 500, "name": "🔥 Afsona"},
-    7: {"days": 35, "stones": 1000, "name": "⚡ Xudo"},
+    7: {"days": 35, "stones": 1000, "name": "⚡ jahon"},
     8: {"days": 50, "stones": 2500, "name": "🌌 Koinot"},
 }
 
