@@ -2,11 +2,11 @@
 # ⚠️ BU YERGA O'ZGARTIRISH KIRITING!
 
 # Bot token (BotFather'dan olingan)
-BOT_TOKEN = "SIZNING_BOT_TOKENINGIZ"
+BOT_TOKEN = "8613383536:AAFtxKbwkbo6jwpU_AI-oHdoHLstw-8DcjE"
 
 # Admin ID (o'zingizning Telegram ID ingiz)
 # @userinfobot dan olishingiz mumkin
-ADMIN_ID = 123456789
+ADMIN_ID = 6060306988
 
 # Asosiy guruh havolasi
 MAIN_GROUP_LINK = "https://t.me/+j5SvFE1hj75iNzUy"
